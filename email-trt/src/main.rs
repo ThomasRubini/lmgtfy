@@ -1,6 +1,9 @@
 use clap::Parser;
-use common::{EMAIL_MSG_QUEUE, PG_URL, dto::EmailMessage};
-use pgmq::{Message, PGMQueueExt, PgmqError};
+use common::{
+    COMMON_MSG_QUEUE, EMAIL_MSG_QUEUE, PG_URL,
+    dto::{CommonMessage, EmailMessage},
+};
+use pgmq::{Message, PGMQueueExt};
 use std::time::Duration;
 use tokio::time::sleep;
 
@@ -17,34 +20,36 @@ struct Args {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), PgmqError> {
+async fn main() -> anyhow::Result<()> {
     println!("Connecting to Postgres");
-    let queue = PGMQueueExt::new(PG_URL.to_string(), 1)
+    let pgmq = PGMQueueExt::new(PG_URL.to_string(), 1)
         .await
         .expect("Failed to connect to postgres");
 
     // Create a queue
-    queue
-        .create(EMAIL_MSG_QUEUE)
+    pgmq.create(EMAIL_MSG_QUEUE)
         .await
         .expect("Failed to create queue");
 
     loop {
         // Read a message
         let received_msg: Message<EmailMessage> =
-            match queue.pop::<EmailMessage>(EMAIL_MSG_QUEUE).await.unwrap() {
+            match pgmq.pop::<EmailMessage>(EMAIL_MSG_QUEUE).await.unwrap() {
                 Some(msg) => msg,
                 None => {
-                    println!("No messages in the queue, retrying...");
                     sleep(Duration::from_secs(1)).await;
                     continue;
                 }
             };
 
-        match on_message_received(&received_msg).await {
+        println!(
+            "Received a message (id={}): {:?}",
+            received_msg.msg_id, received_msg.message
+        );
+
+        match on_message_received(&pgmq, received_msg.message).await {
             Ok(_) => {
-                queue
-                    .delete(EMAIL_MSG_QUEUE, received_msg.msg_id)
+                pgmq.delete(EMAIL_MSG_QUEUE, received_msg.msg_id)
                     .await
                     .unwrap();
             }
@@ -55,7 +60,10 @@ async fn main() -> Result<(), PgmqError> {
     }
 }
 
-async fn on_message_received(msg: &Message<EmailMessage>) -> anyhow::Result<()> {
-    println!("Processing message: {:?}", msg);
+async fn on_message_received(pgmq: &PGMQueueExt, msg: EmailMessage) -> anyhow::Result<()> {
+    let common_msg: CommonMessage = msg.into();
+    pgmq.send(COMMON_MSG_QUEUE, &common_msg)
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to push message: {:?}", e))?;
     Ok(())
 }

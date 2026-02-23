@@ -1,3 +1,5 @@
+use pgmq::PGMQueueExt;
+
 pub mod dto;
 
 pub const VISIBILITY_TIMEOUT_SECONDS: i32 = 30;
