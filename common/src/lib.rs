@@ -1,14 +1,7 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+pub mod dto;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub const VISIBILITY_TIMEOUT_SECONDS: i32 = 30;
+pub const PG_URL: &str = "postgres://postgres:postgres@0.0.0.0:5432";
+pub const WHATSAPP_MSG_QUEUE: &str = "whatsapp_messages";
+pub const EMAIL_MSG_QUEUE: &str = "email_messages";
+pub const COMMON_MSG_QUEUE: &str = "common_messages";
