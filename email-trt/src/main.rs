@@ -41,6 +41,21 @@ async fn main() -> Result<(), PgmqError> {
                 }
             };
 
-        println!("Received a message: {:?}", received_msg);
+        match on_message_received(&received_msg).await {
+            Ok(_) => {
+                queue
+                    .delete(EMAIL_MSG_QUEUE, received_msg.msg_id)
+                    .await
+                    .unwrap();
+            }
+            Err(err) => {
+                eprintln!("Error processing message: {:?}", err);
+            }
+        }
     }
+}
+
+async fn on_message_received(msg: &Message<EmailMessage>) -> anyhow::Result<()> {
+    println!("Processing message: {:?}", msg);
+    Ok(())
 }

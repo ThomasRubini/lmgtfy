@@ -39,12 +39,12 @@ impl From<WhatsAppMessage> for Message {
 }
 
 impl From<EmailMessage> for Message {
-    fn from(wa_msg: EmailMessage) -> Self {
+    fn from(email_msg: EmailMessage) -> Self {
         Message {
-            contact: wa_msg.from,
+            contact: email_msg.from,
             origin: "Email".to_string(),
-            body: wa_msg.content,
-            timestamp: wa_msg.timestamp,
+            body: email_msg.content,
+            timestamp: email_msg.timestamp,
         }
     }
 }
