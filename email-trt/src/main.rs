@@ -5,8 +5,7 @@ use std::time::Duration;
 use tokio::time::sleep;
 
 #[derive(Parser)]
-#[command(name = "Email Simulator")]
-#[command(about = "A CLI for simulating email queue operations")]
+#[command()]
 struct Args {
     /// Message content
     #[arg(long)]

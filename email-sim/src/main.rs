@@ -4,8 +4,7 @@ use pgmq::{PGMQueueExt, PgmqError};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Parser)]
-#[command(name = "Email Simulator")]
-#[command(about = "A CLI for simulating email queue operations")]
+#[command()]
 struct Args {
     /// Number of messages to send
     #[arg(long)]
