@@ -1,5 +1,5 @@
 use clap::Parser;
-use common::{EMAIL_MSG_QUEUE, PG_URL, VISIBILITY_TIMEOUT_SECONDS, dto::EmailMessage};
+use common::{EMAIL_MSG_QUEUE, PG_URL, dto::EmailMessage};
 use pgmq::{Message, PGMQueueExt, PgmqError};
 use std::time::Duration;
 use tokio::time::sleep;
@@ -31,18 +31,15 @@ async fn main() -> Result<(), PgmqError> {
 
     loop {
         // Read a message
-        let received_msg: Message<EmailMessage> = match queue
-            .read::<EmailMessage>(EMAIL_MSG_QUEUE, VISIBILITY_TIMEOUT_SECONDS)
-            .await
-            .unwrap()
-        {
-            Some(msg) => msg,
-            None => {
-                println!("No messages in the queue, retrying...");
-                sleep(Duration::from_secs(1)).await;
-                continue;
-            }
-        };
+        let received_msg: Message<EmailMessage> =
+            match queue.pop::<EmailMessage>(EMAIL_MSG_QUEUE).await.unwrap() {
+                Some(msg) => msg,
+                None => {
+                    println!("No messages in the queue, retrying...");
+                    sleep(Duration::from_secs(1)).await;
+                    continue;
+                }
+            };
 
         println!("Received a message: {:?}", received_msg);
     }
