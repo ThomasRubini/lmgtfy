@@ -48,7 +48,7 @@ pub trait QueueManager: Send + Sync {
         // Infinite loop for reading messages
         loop {
             // Read a message
-            let received_msg: Message<T> = match self.read(EMAIL_MSG_QUEUE).await.unwrap() {
+            let received_msg: Message<T> = match self.read(queue_name).await.unwrap() {
                 Some(msg) => msg,
                 None => {
                     sleep(Duration::from_secs(1)).await;
