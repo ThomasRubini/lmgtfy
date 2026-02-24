@@ -4,8 +4,8 @@ use common::{
     dto::{CommonMessage, EmailMessage},
     queue::{Message, QueueManager, pgmq::PgMqQueueManager},
 };
-use std::time::Duration;
-use tokio::time::sleep;
+use std::{future, time::Duration};
+use tokio::{sync::futures, time::sleep};
 
 #[derive(Parser)]
 #[command()]
@@ -25,46 +25,19 @@ async fn main() -> anyhow::Result<()> {
     let queue_mgr = PgMqQueueManager::new().await;
 
     // Create queue
-    queue_mgr.create(EMAIL_MSG_QUEUE).await?;
     queue_mgr.create(COMMON_MSG_QUEUE).await?;
 
-    loop {
-        // Read a message
-        let received_msg: Message<EmailMessage> = match queue_mgr
-            .read::<EmailMessage>(EMAIL_MSG_QUEUE)
-            .await
-            .unwrap()
-        {
-            Some(msg) => msg,
-            None => {
-                sleep(Duration::from_secs(1)).await;
-                continue;
-            }
-        };
+    queue_mgr
+        .register_read::<EmailMessage, _>(EMAIL_MSG_QUEUE, &async |msg| {
+            let common_msg: CommonMessage = msg.message.into();
+            queue_mgr
+                .send(COMMON_MSG_QUEUE, &common_msg)
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to push message: {:?}", e))?;
+            Ok(())
+        })
+        .await?;
 
-        println!(
-            "Received a message (id={}): {:?}",
-            received_msg.msg_id, received_msg.message
-        );
-
-        match on_message_received(&queue_mgr, received_msg.message).await {
-            Ok(_) => {
-                queue_mgr
-                    .delete(EMAIL_MSG_QUEUE, received_msg.msg_id)
-                    .await
-                    .unwrap();
-            }
-            Err(err) => {
-                eprintln!("Error processing message: {:?}", err);
-            }
-        }
-    }
-}
-
-async fn on_message_received(pgmq: &impl QueueManager, msg: EmailMessage) -> anyhow::Result<()> {
-    let common_msg: CommonMessage = msg.into();
-    pgmq.send(COMMON_MSG_QUEUE, &common_msg)
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to push message: {:?}", e))?;
-    Ok(())
+    future::pending::<()>().await;
+    panic!("All tasks finished");
 }
