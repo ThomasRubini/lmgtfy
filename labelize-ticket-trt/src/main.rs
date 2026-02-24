@@ -1,69 +1,45 @@
-use anyhow::Context;
-use common::{NEW_TICKET_QUEUE, PG_URL, VISIBILITY_TIMEOUT_SECONDS, dto::NewTicket};
+use common::queue::QueueManager;
+use common::{NEW_TICKET_QUEUE, dto::NewTicket, queue::pgmq::PgMqQueueManager};
 use openrouter_rs::{
     OpenRouterClient,
     api::chat::*,
-    types::{ProviderPreferences, ResponseFormat, Role},
+    types::{ResponseFormat, Role},
 };
-use pgmq::{Message as MQMessage, PGMQueueExt, PgmqError};
-use std::{env, time::Duration};
-use tokio::time::sleep;
+use pgmq::PgmqError;
+use std::env;
 
 const MODEL: &str = "openrouter/free";
-const READ_QUEUE: &str = NEW_TICKET_QUEUE;
-const API_KEY: &str = env!("OPENROUTER_API_KEY");
+
+fn get_api_key() -> String {
+    env::var("OPENROUTER_API_KEY").expect("OPENROUTER_API_KEY must be set")
+}
 
 #[tokio::main]
 async fn main() -> Result<(), PgmqError> {
-    println!("Connecting to Postgres, queue: {}", READ_QUEUE);
-    let queue = PGMQueueExt::new(PG_URL.to_string(), 1)
+    let queue_mgr = PgMqQueueManager::new()
         .await
         .expect("Failed to connect to postgres");
 
     // Create a queue
-    queue
-        .create(READ_QUEUE)
+    queue_mgr
+        .create(NEW_TICKET_QUEUE)
         .await
         .expect("Failed to create queue");
 
     // Init LLM
     let client = OpenRouterClient::builder()
-        .api_key(API_KEY)
+        .api_key(get_api_key())
         .build()
         .expect("Failed to create OpenRouter client");
 
-    loop {
-        // Read a message
-        let received_msg: MQMessage<NewTicket> = match queue
-            .read::<NewTicket>(READ_QUEUE, VISIBILITY_TIMEOUT_SECONDS)
-            .await
-            .unwrap()
-        {
-            Some(msg) => msg,
-            None => {
-                println!("No messages in the queue, retrying...");
-                sleep(Duration::from_secs(1)).await;
-                continue;
-            }
-        };
-        on_message(&client, received_msg.message).await;
-    }
-}
+    queue_mgr
+        .register_read(NEW_TICKET_QUEUE, &|msg| {
+            on_message(&client, msg.message)
+        })
+        .await
+        .expect("Failed to register read handler");
 
-async fn on_message(client: &OpenRouterClient, msg: NewTicket) {
-    println!("Received a message: {:?}", msg);
-
-    match labelize_message(client, &msg).await {
-        Ok(_) => {
-            println!("Message processed successfully: {:?}", msg);
-            // Acknowledge the message
-            // queue.ack(received_msg.id).await.unwrap();
-        }
-        Err(e) => {
-            eprintln!("Error processing message {:?}: {:?}", msg, e);
-            // TODO: To DLQ
-        }
-    }
+    Ok(())
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -74,12 +50,20 @@ struct FormattedTicket {
     description: String,
 }
 
-
 #[derive(Debug, serde::Deserialize)]
 struct LLMResponse {
     title: String,
     tags: Vec<String>,
     description: String,
+}
+
+async fn on_message(client: &OpenRouterClient, msg: NewTicket) -> anyhow::Result<()> {
+    println!("Received a message: {:?}", msg);
+
+    labelize_message(client, &msg).await?;
+    // TODO post to postgres
+
+    Ok(())
 }
 
 async fn labelize_message(client: &OpenRouterClient, msg: &NewTicket) -> anyhow::Result<FormattedTicket> {
@@ -174,7 +158,7 @@ mod tests {
     #[tokio::test]
     async fn test_labelize_message_with_fake_ticket() {
         let client = OpenRouterClient::builder()
-            .api_key(API_KEY)
+            .api_key(get_api_key())
             .build()
             .expect("Failed to create OpenRouter client");
 
