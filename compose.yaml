@@ -34,6 +34,27 @@ services:
       KAFKA_NUM_PARTITIONS: 1
     volumes:
       - kafka_data:/tmp/kraft-combined-logs
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-cluster.sh cluster-id --bootstrap-server localhost:9092 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  kafbat-ui:
+    image: ghcr.io/kafbat/kafka-ui:latest
+    container_name: kafbat-ui
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      DYNAMIC_CONFIG_ENABLED: 'true'
+      KAFKA_CLUSTERS_0_NAME: 'local-kafka'
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: 'kafka:29092'
+      KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL: 'PLAINTEXT'
+    restart: unless-stopped
 
 volumes:
   postgres_data:
