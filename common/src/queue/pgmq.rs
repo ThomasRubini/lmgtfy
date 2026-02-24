@@ -30,7 +30,7 @@ impl QueueManager for PgMqQueueManager {
     }
 
     async fn read<T: for<'de> Deserialize<'de> + Serialize>(
-        &self,
+        &mut self,
         queue_name: &str,
     ) -> anyhow::Result<Option<Message<T>>> {
         let msg: Option<pgmq::Message<T>> = self

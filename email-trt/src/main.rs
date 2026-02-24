@@ -22,7 +22,7 @@ struct Args {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     println!("Starting email processor with Kafka...");
-    let queue_mgr = KafkaQueueManager::new()
+    let mut queue_mgr = KafkaQueueManager::new()
         .await
         .expect("Failed to connect to Kafka - ensure Kafka is running on localhost:9092");
 

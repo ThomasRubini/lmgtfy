@@ -12,7 +12,7 @@ fn get_webhook_url() -> anyhow::Result<String> {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let queue_mgr = KafkaQueueManager::new()
+    let mut queue_mgr = KafkaQueueManager::new()
         .await
         .context("Failed to connect to postgres")?;
 

@@ -28,7 +28,7 @@ pub trait QueueManager: Send + Sync {
     /// Receive a message from the queue with a given visibility timeout
     /// Returns (message_id, message_content)
     async fn read<T: for<'de> Deserialize<'de> + Serialize>(
-        &self,
+        &mut self,
         queue_name: &str,
     ) -> Result<Option<Message<T>>>;
 
@@ -36,7 +36,7 @@ pub trait QueueManager: Send + Sync {
     async fn delete(&self, queue_name: &str, message_id: i64) -> Result<()>;
 
     async fn register_read<T: for<'de> Deserialize<'de> + Serialize, R>(
-        &self,
+        &mut self,
         queue_name: &str,
         process: &dyn Fn(Message<T>) -> R,
     ) -> Result<()>

@@ -19,7 +19,7 @@ fn get_api_key() -> String {
 
 #[tokio::main]
 async fn main() -> Result<(), PgmqError> {
-    let queue_mgr = KafkaQueueManager::new()
+    let mut queue_mgr = KafkaQueueManager::new()
         .await
         .expect("Failed to connect to postgres");
 
@@ -36,14 +36,15 @@ async fn main() -> Result<(), PgmqError> {
         .expect("Failed to create OpenRouter client");
 
     queue_mgr
-        .register_read(COMMON_MSG_QUEUE, &|msg: common::queue::Message<
+        .register_read(COMMON_MSG_QUEUE, &async |msg: common::queue::Message<
             CommonMessage,
         >| {
-            let new_ticket = NewTicket {
-                id: "99".to_string(),
-                init_message: msg.message,
-            };
-            on_message(&client, new_ticket)
+            Err(anyhow::anyhow!("Failed to process message"))
+            // let new_ticket = NewTicket {
+            //     id: "99".to_string(),
+            //     init_message: msg.message,
+            // };
+            // on_message(&client, new_ticket)
         })
         .await
         .expect("Failed to register read handler");
