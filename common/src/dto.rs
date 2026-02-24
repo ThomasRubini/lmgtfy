@@ -30,6 +30,12 @@ pub struct CommonMessage {
     pub ticket_hint: Option<String>,
 }
 
+#[derive(Serialize, Debug, Deserialize)]
+pub struct NewTicket {
+    pub id: String,
+    pub init_message: CommonMessage,
+}
+
 // FIXME: Move to a separate project
 
 impl From<WhatsAppMessage> for CommonMessage {
