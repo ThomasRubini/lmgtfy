@@ -2,10 +2,9 @@ use clap::Parser;
 use common::{
     COMMON_MSG_QUEUE, EMAIL_MSG_QUEUE,
     dto::{CommonMessage, EmailMessage},
-    queue::{Message, QueueManager, pgmq::PgMqQueueManager},
+    queue::{QueueManager, pgmq::PgMqQueueManager},
 };
-use std::{future, time::Duration};
-use tokio::{sync::futures, time::sleep};
+use std::future;
 
 #[derive(Parser)]
 #[command()]
