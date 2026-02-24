@@ -18,7 +18,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Check that we can get the URL:
     get_webhook_url()?;
-
+/*/
     for queue in queue_mgr.list_queues().await? {
         if queue.ends_with("_dlq") {
             println!("Registering handler for queue: {}", queue);
@@ -32,14 +32,14 @@ async fn main() -> anyhow::Result<()> {
                 .context("Failed to register read handler")?;
         }
     }
-
+*/
     Ok(())
 }
 
 async fn on_message(queue: &str, msg: &serde_json::Value) -> anyhow::Result<()> {
     println!("Received message from {}: {:?}", queue, msg);
     let payload = json!({
-        "content": format!("#⚠️Dead message for queue `{}`⚠️ \n {}", queue, msg)
+        "content": format!("# ⚠️Dead message for queue `{}`⚠️ \n ```json\n{}\n```", queue, msg)
     });
     let client = Client::new();
 
