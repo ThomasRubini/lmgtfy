@@ -2,7 +2,7 @@ use std::env;
 
 use anyhow::Context;
 use common::queue::QueueManager;
-use common::queue::pgmq::PgMqQueueManager;
+use common::queue::kafka::KafkaQueueManager;
 use reqwest::Client;
 use serde_json::json;
 
@@ -12,27 +12,23 @@ fn get_webhook_url() -> anyhow::Result<String> {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let queue_mgr = PgMqQueueManager::new()
+    let queue_mgr = KafkaQueueManager::new()
         .await
         .context("Failed to connect to postgres")?;
 
     // Check that we can get the URL:
     get_webhook_url()?;
-/*/
-    for queue in queue_mgr.list_queues().await? {
-        if queue.ends_with("_dlq") {
-            println!("Registering handler for queue: {}", queue);
-            queue_mgr
-                .register_read(&queue, &async |msg: common::queue::Message<
-                    serde_json::Value,
-                >| {
-                    on_message(&queue, &msg.message).await
-                })
-                .await
-                .context("Failed to register read handler")?;
-        }
-    }
-*/
+
+    queue_mgr
+        .register_read("^.*_dlq", &async |msg: common::queue::Message<
+            serde_json::Value,
+        >| {
+            println!("Received message in DLQ");
+            on_message("test_dlq", &msg.message).await
+        })
+        .await
+        .context("Failed to register read handler for test_dlq")?;
+
     Ok(())
 }
 
