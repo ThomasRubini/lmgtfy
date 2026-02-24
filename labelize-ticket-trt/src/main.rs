@@ -187,18 +187,4 @@ mod tests {
             result.err()
         );
     }
-    /*
-    #[tokio::test]
-    async fn test_on_message_with_fake_ticket() {
-        let client = OpenRouterClient::builder()
-            .api_key("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")
-            .build()
-            .expect("Failed to create OpenRouter client");
-
-        let ticket = fake_new_ticket();
-
-        // This just checks that the function runs without panicking
-        on_message(&client, ticket).await;
-    }
-    */
 }
