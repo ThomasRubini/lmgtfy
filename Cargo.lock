@@ -3298,7 +3298,22 @@ dependencies = [
 name = "whatsapp-sim"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "clap",
  "common",
+ "serde",
+ "tokio",
+]
+
+[[package]]
+name = "whatsapp-trt"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "common",
+ "serde",
+ "tokio",
 ]
 
 [[package]]

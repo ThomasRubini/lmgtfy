@@ -1,5 +1,5 @@
 [package]
-name = "whatsapp-sim"
+name = "whatsapp-trt"
 version = "0.1.0"
 edition = "2021"
 
