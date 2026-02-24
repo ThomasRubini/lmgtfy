@@ -82,7 +82,7 @@ struct LLMResponse {
     description: String,
 }
 
-async fn labelize_message(client: &OpenRouterClient, msg: &NewTicket) -> anyhow::Result<()> {
+async fn labelize_message(client: &OpenRouterClient, msg: &NewTicket) -> anyhow::Result<FormattedTicket> {
     println!("Processing message: {:?}", msg);
 
     // send to llm, expect a title, tags and description
@@ -149,7 +149,7 @@ async fn labelize_message(client: &OpenRouterClient, msg: &NewTicket) -> anyhow:
         
     };
     eprintln!("Formatted ticket: {:#?}", formatted_ticket);
-    Ok(())
+    Ok(formatted_ticket)
 }
 
 #[cfg(test)]
