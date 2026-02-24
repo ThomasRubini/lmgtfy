@@ -5,8 +5,6 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use tokio::time::sleep;
 
-use crate::EMAIL_MSG_QUEUE;
-
 pub mod kafka;
 pub mod pgmq;
 

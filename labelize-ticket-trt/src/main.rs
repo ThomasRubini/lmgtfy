@@ -1,5 +1,8 @@
+use common::COMMON_MSG_QUEUE;
+use common::dto::CommonMessage;
+use common::dto::NewTicket;
 use common::queue::QueueManager;
-use common::{NEW_TICKET_QUEUE, dto::NewTicket, queue::pgmq::PgMqQueueManager};
+use common::queue::kafka::KafkaQueueManager;
 use openrouter_rs::{
     OpenRouterClient,
     api::chat::*,
@@ -16,13 +19,13 @@ fn get_api_key() -> String {
 
 #[tokio::main]
 async fn main() -> Result<(), PgmqError> {
-    let queue_mgr = PgMqQueueManager::new()
+    let queue_mgr = KafkaQueueManager::new()
         .await
         .expect("Failed to connect to postgres");
 
     // Create a queue
     queue_mgr
-        .create(NEW_TICKET_QUEUE)
+        .create(COMMON_MSG_QUEUE)
         .await
         .expect("Failed to create queue");
 
@@ -33,8 +36,14 @@ async fn main() -> Result<(), PgmqError> {
         .expect("Failed to create OpenRouter client");
 
     queue_mgr
-        .register_read(NEW_TICKET_QUEUE, &|msg| {
-            on_message(&client, msg.message)
+        .register_read(COMMON_MSG_QUEUE, &|msg: common::queue::Message<
+            CommonMessage,
+        >| {
+            let new_ticket = NewTicket {
+                id: "99".to_string(),
+                init_message: msg.message,
+            };
+            on_message(&client, new_ticket)
         })
         .await
         .expect("Failed to register read handler");
@@ -66,7 +75,10 @@ async fn on_message(client: &OpenRouterClient, msg: NewTicket) -> anyhow::Result
     Ok(())
 }
 
-async fn labelize_message(client: &OpenRouterClient, msg: &NewTicket) -> anyhow::Result<FormattedTicket> {
+async fn labelize_message(
+    client: &OpenRouterClient,
+    msg: &NewTicket,
+) -> anyhow::Result<FormattedTicket> {
     println!("Processing message: {:?}", msg);
 
     // send to llm, expect a title, tags and description
@@ -130,7 +142,6 @@ async fn labelize_message(client: &OpenRouterClient, msg: &NewTicket) -> anyhow:
         title: parsed.title,
         tags: parsed.tags,
         description: parsed.description,
-        
     };
     eprintln!("Formatted ticket: {:#?}", formatted_ticket);
     Ok(formatted_ticket)
