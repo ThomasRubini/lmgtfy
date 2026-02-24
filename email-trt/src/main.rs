@@ -20,8 +20,7 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    println!("Connecting to Postgres");
-    let queue_mgr = PgMqQueueManager::new().await;
+    let queue_mgr = PgMqQueueManager::new().await.expect("Failed to connect to postgres");
 
     // Create queue
     queue_mgr.create(COMMON_MSG_QUEUE).await?;

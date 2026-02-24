@@ -24,7 +24,7 @@ pub trait QueueManager: Send + Sync {
     async fn create(&self, queue_name: &str) -> Result<()>;
 
     /// Send a message to the queue
-    async fn send(&self, queue_name: &str, message: &impl Serialize) -> Result<()>;
+    async fn send(&self, queue_name: &str, message: &impl Serialize) -> Result<i64>;
 
     /// Receive a message from the queue with a given visibility timeout
     /// Returns (message_id, message_content)

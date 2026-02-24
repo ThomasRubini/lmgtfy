@@ -1,6 +1,9 @@
 use clap::Parser;
-use common::{EMAIL_MSG_QUEUE, PG_URL, dto::EmailMessage};
-use pgmq::{PGMQueueExt, PgmqError};
+use common::{
+    EMAIL_MSG_QUEUE,
+    dto::EmailMessage,
+    queue::{QueueManager, pgmq::PgMqQueueManager},
+};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Parser)]
@@ -12,16 +15,15 @@ struct Args {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), PgmqError> {
+async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
-    println!("Connecting to Postgres");
-    let queue = PGMQueueExt::new(PG_URL.to_string(), 1)
+    let queue_mgr = PgMqQueueManager::new()
         .await
         .expect("Failed to connect to postgres");
 
     // Create a queue
-    queue
+    queue_mgr
         .create(EMAIL_MSG_QUEUE)
         .await
         .expect("Failed to create queue");
@@ -39,7 +41,7 @@ async fn main() -> Result<(), PgmqError> {
         };
 
         // Send the message
-        let msg_id: i64 = queue
+        let msg_id: i64 = queue_mgr
             .send(EMAIL_MSG_QUEUE, &msg)
             .await
             .expect("Failed to enqueue message");

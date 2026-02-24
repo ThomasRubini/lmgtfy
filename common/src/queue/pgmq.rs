@@ -2,7 +2,8 @@ use pgmq::PGMQueueExt;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    MAX_RETRIES, PG_URL, VISIBILITY_TIMEOUT_SECONDS, queue::{Message, QueueManager}
+    MAX_RETRIES, PG_URL, VISIBILITY_TIMEOUT_SECONDS,
+    queue::{Message, QueueManager},
 };
 
 pub struct PgMqQueueManager {
@@ -10,11 +11,9 @@ pub struct PgMqQueueManager {
 }
 
 impl PgMqQueueManager {
-    pub async fn new() -> Self {
-        let inner = PGMQueueExt::new(PG_URL.to_string(), 1)
-            .await
-            .expect("Failed to connect to postgres");
-        PgMqQueueManager { inner }
+    pub async fn new() -> anyhow::Result<Self> {
+        let inner = PGMQueueExt::new(PG_URL.to_string(), 1).await?;
+        Ok(PgMqQueueManager { inner })
     }
 }
 
@@ -26,9 +25,8 @@ impl QueueManager for PgMqQueueManager {
         Ok(())
     }
 
-    async fn send(&self, queue_name: &str, message: &impl Serialize) -> anyhow::Result<()> {
-        self.inner.send(queue_name, message).await?;
-        Ok(())
+    async fn send(&self, queue_name: &str, message: &impl Serialize) -> anyhow::Result<i64> {
+        Ok(self.inner.send(queue_name, message).await?)
     }
 
     async fn read<T: for<'de> Deserialize<'de> + Serialize>(
