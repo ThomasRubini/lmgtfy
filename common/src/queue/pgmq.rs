@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     MAX_RETRIES, PG_URL, VISIBILITY_TIMEOUT_SECONDS,
-    queue::{Message, QueueManager},
+    queue::{Message, QueueManager, get_dlq_name},
 };
 
 pub struct PgMqQueueManager {
@@ -20,7 +20,7 @@ impl PgMqQueueManager {
 impl QueueManager for PgMqQueueManager {
     async fn create(&self, queue_name: &str) -> anyhow::Result<()> {
         self.inner.create(queue_name).await?;
-        let dlq_name = format!("{}_dlq", queue_name);
+        let dlq_name = get_dlq_name(queue_name);
         self.inner.create(&dlq_name).await?;
         Ok(())
     }
@@ -44,7 +44,7 @@ impl QueueManager for PgMqQueueManager {
                         "Message {} has been read {} times, moving it to DLQ",
                         m.msg_id, m.read_ct
                     );
-                    let dlq_name = format!("{}_dlq", queue_name);
+                    let dlq_name = get_dlq_name(queue_name);
                     self.inner.send(&dlq_name, &m.message).await?;
                     self.inner.delete(queue_name, m.msg_id).await?;
                     return Ok(None);
