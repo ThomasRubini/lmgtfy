@@ -39,12 +39,11 @@ async fn main() -> Result<(), PgmqError> {
         .register_read(COMMON_MSG_QUEUE, &async |msg: common::queue::Message<
             CommonMessage,
         >| {
-            Err(anyhow::anyhow!("Failed to process message"))
-            // let new_ticket = NewTicket {
-            //     id: "99".to_string(),
-            //     init_message: msg.message,
-            // };
-            // on_message(&client, new_ticket)
+            let new_ticket = NewTicket {
+                id: "99".to_string(),
+                init_message: msg.message,
+            };
+            on_message(&client, new_ticket).await
         })
         .await
         .expect("Failed to register read handler");
