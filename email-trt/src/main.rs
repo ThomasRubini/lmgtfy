@@ -1,9 +1,9 @@
 use clap::Parser;
 use common::{
-    COMMON_MSG_QUEUE, EMAIL_MSG_QUEUE, PG_URL,
+    COMMON_MSG_QUEUE, EMAIL_MSG_QUEUE,
     dto::{CommonMessage, EmailMessage},
+    queue::{Message, QueueManager, pgmq::PgMqQueueManager},
 };
-use pgmq::{Message, PGMQueueExt};
 use std::time::Duration;
 use tokio::time::sleep;
 
@@ -22,34 +22,35 @@ struct Args {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     println!("Connecting to Postgres");
-    let pgmq = PGMQueueExt::new(PG_URL.to_string(), 1)
-        .await
-        .expect("Failed to connect to postgres");
+    let queue_mgr = PgMqQueueManager::new().await;
 
-    // Create a queue
-    pgmq.create(EMAIL_MSG_QUEUE)
-        .await
-        .expect("Failed to create queue");
+    // Create queue
+    queue_mgr.create(EMAIL_MSG_QUEUE).await?;
+    queue_mgr.create(COMMON_MSG_QUEUE).await?;
 
     loop {
         // Read a message
-        let received_msg: Message<EmailMessage> =
-            match pgmq.pop::<EmailMessage>(EMAIL_MSG_QUEUE).await.unwrap() {
-                Some(msg) => msg,
-                None => {
-                    sleep(Duration::from_secs(1)).await;
-                    continue;
-                }
-            };
+        let received_msg: Message<EmailMessage> = match queue_mgr
+            .read::<EmailMessage>(EMAIL_MSG_QUEUE)
+            .await
+            .unwrap()
+        {
+            Some(msg) => msg,
+            None => {
+                sleep(Duration::from_secs(1)).await;
+                continue;
+            }
+        };
 
         println!(
             "Received a message (id={}): {:?}",
             received_msg.msg_id, received_msg.message
         );
 
-        match on_message_received(&pgmq, received_msg.message).await {
+        match on_message_received(&queue_mgr, received_msg.message).await {
             Ok(_) => {
-                pgmq.delete(EMAIL_MSG_QUEUE, received_msg.msg_id)
+                queue_mgr
+                    .delete(EMAIL_MSG_QUEUE, received_msg.msg_id)
                     .await
                     .unwrap();
             }
@@ -60,7 +61,7 @@ async fn main() -> anyhow::Result<()> {
     }
 }
 
-async fn on_message_received(pgmq: &PGMQueueExt, msg: EmailMessage) -> anyhow::Result<()> {
+async fn on_message_received(pgmq: &impl QueueManager, msg: EmailMessage) -> anyhow::Result<()> {
     let common_msg: CommonMessage = msg.into();
     pgmq.send(COMMON_MSG_QUEUE, &common_msg)
         .await
