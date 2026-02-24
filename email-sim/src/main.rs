@@ -2,7 +2,7 @@ use clap::Parser;
 use common::{
     EMAIL_MSG_QUEUE,
     dto::EmailMessage,
-    queue::{QueueManager, pgmq::PgMqQueueManager},
+    queue::{QueueManager, kafka::KafkaQueueManager},
 };
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -18,35 +18,38 @@ struct Args {
 async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
-    let queue_mgr = PgMqQueueManager::new()
+    println!("Connecting to Kafka for sending messages...");
+    let queue_mgr = KafkaQueueManager::new()
         .await
-        .expect("Failed to connect to postgres");
+        .expect("Failed to connect to Kafka - ensure Kafka is running on localhost:9092");
 
-    // Create a queue
+    // Create topic if it doesn't exist
     queue_mgr
         .create(EMAIL_MSG_QUEUE)
         .await
-        .expect("Failed to create queue");
+        .expect(&format!("Failed to create topic '{}'", EMAIL_MSG_QUEUE));
+    println!("Topic '{}' ready", EMAIL_MSG_QUEUE);
 
-    for _ in 0..args.count {
-        // Create a message
+    for i in 1..=args.count {
         let msg = EmailMessage {
-            from: "from".to_string(),
-            to: "to".to_string(),
-            content: "content".to_string(),
+            from: format!("user{}@example.com", i),
+            to: "support@company.com".to_string(),
+            content: format!("Hello, this is message #{} - I need help!", i),
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
+                .expect("Failed to get current timestamp")
                 .as_secs(),
         };
 
-        // Send the message
-        let msg_id: i64 = queue_mgr
+        let msg_id = queue_mgr
             .send(EMAIL_MSG_QUEUE, &msg)
             .await
-            .expect("Failed to enqueue message");
-        println!("Sent a message (id={}): {:?}", msg_id, msg);
+            .expect(&format!("Failed to send message {} to Kafka", i));
+        
+        println!("Sent message {}/{} (id={}): from={}, content={}", 
+                 i, args.count, msg_id, msg.from, msg.content);
     }
 
+    println!("All {} messages sent successfully!", args.count);
     Ok(())
 }
