@@ -44,10 +44,6 @@ pub trait QueueManager: Send + Sync {
     where
         R: Future<Output = anyhow::Result<()>>,
     {
-        // Create queues
-        self.create(queue_name).await?;
-        self.create(&get_dlq_name(queue_name)).await?;
-
         // Infinite loop for reading messages
         loop {
             // Read a message

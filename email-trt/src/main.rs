@@ -23,6 +23,7 @@ async fn main() -> anyhow::Result<()> {
     let queue_mgr = PgMqQueueManager::new().await.expect("Failed to connect to postgres");
 
     // Create queue
+    queue_mgr.create(EMAIL_MSG_QUEUE).await?;
     queue_mgr.create(COMMON_MSG_QUEUE).await?;
 
     queue_mgr
