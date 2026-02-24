@@ -1,3 +1,3 @@
 [workspace]
 resolver = "3"
-members = ["common","whatsapp-sim", "email-sim", "email-trt", "whatsapp-trt", "labelize-ticket-trt"]
+members = ["common","whatsapp-sim", "email-sim", "email-trt", "labelize-ticket-trt","alerting-dlq"]

@@ -39,7 +39,7 @@ async fn main() -> anyhow::Result<()> {
 async fn on_message(queue: &str, msg: &serde_json::Value) -> anyhow::Result<()> {
     println!("Received message from {}: {:?}", queue, msg);
     let payload = json!({
-        "content": format!("Received message from queue {}: {}", queue, msg)
+        "content": format!("#⚠️Dead message for queue `{}`⚠️ \n {}", queue, msg)
     });
     let client = Client::new();
 
