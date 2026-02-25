@@ -18,7 +18,7 @@ fn get_api_key() -> String {
 
 #[tokio::main]
 async fn main() -> Result<(), PgmqError> {
-    let mut queue_mgr = KafkaQueueManager::new()
+    let queue_mgr = KafkaQueueManager::new()
         .await
         .expect("Failed to connect to postgres");
 
