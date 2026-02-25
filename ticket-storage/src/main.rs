@@ -8,8 +8,6 @@ use common::{
 use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Write};
 use std::path::Path;
-use std::time::Duration;
-use tokio::time::sleep;
 
 const STORAGE_DIR: &str = "./data/labeled_tickets";
 
@@ -79,38 +77,29 @@ async fn main() -> Result<()> {
     println!("Starting Labeled Ticket Storage service...");
     println!("Storage directory: {}", STORAGE_DIR);
 
-    let mut storage = TicketStorage::new()?;
-    
     let mut queue_mgr = KafkaQueueManager::new().await?;
     queue_mgr.create(LABELED_TICKETS_QUEUE).await?;
 
     println!("Listening for labeled tickets on '{}'...", LABELED_TICKETS_QUEUE);
 
-    loop {
-        match queue_mgr.read::<LabeledTicket>(LABELED_TICKETS_QUEUE).await {
-            Ok(Some(Message { msg_id, message })) => {
-                println!("Received labeled ticket (id={}): title='{}'", 
-                         msg_id, message.title);
-                
-                // Stocker en JSON
-                if let Err(e) = storage.store_ticket(message) {
-                    eprintln!("Failed to store labeled ticket {}: {}", msg_id, e);
-                } else {
-                    println!("Labeled ticket {} stored successfully", msg_id);
-                }
-                
-                // Acquitter le message
-                queue_mgr.delete(LABELED_TICKETS_QUEUE, msg_id).await?;
+    queue_mgr
+        .register_read(LABELED_TICKETS_QUEUE, &async |msg: Message<LabeledTicket>| {
+            let mut storage = TicketStorage::new()?;
+            
+            println!("Received labeled ticket (id={}): title='{}'", 
+                     msg.msg_id, msg.message.title);
+            
+            if let Err(e) = storage.store_ticket(msg.message) {
+                eprintln!("Failed to store labeled ticket {}: {}", msg.msg_id, e);
+            } else {
+                println!("Labeled ticket {} stored successfully", msg.msg_id);
             }
-            Ok(None) => {
-                sleep(Duration::from_millis(500)).await;
-            }
-            Err(e) => {
-                eprintln!("Error reading from labeled tickets queue: {}", e);
-                sleep(Duration::from_secs(2)).await;
-            }
-        }
-    }
+            
+            Ok(())
+        })
+        .await?;
+
+    Ok(())
 }
 
 #[cfg(test)]

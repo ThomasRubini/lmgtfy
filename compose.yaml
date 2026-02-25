@@ -110,6 +110,16 @@ services:
     env_file:
       - .env
 
+  ticket-storage:
+    build: .
+    command: ["/app/ticket-storage"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ticket_data:/app/data
+
 volumes:
   postgres_data:
   kafka_data:
+  ticket_data:

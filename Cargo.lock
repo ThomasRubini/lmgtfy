@@ -3401,6 +3401,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ticket-storage"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "common",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "time"
 version = "0.2.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"

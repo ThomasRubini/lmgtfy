@@ -18,8 +18,9 @@ COPY email-trt ./email-trt
 COPY whatsapp-trt ./whatsapp-trt
 COPY labelize-ticket-trt ./labelize-ticket-trt
 COPY alerting-dlq ./alerting-dlq
+COPY ticket-storage ./ticket-storage
 
-RUN cargo build --release --package email-sim --package whatsapp-sim --package email-trt --package whatsapp-trt --package labelize-ticket-trt --package alerting-dlq
+RUN cargo build --release --package email-sim --package whatsapp-sim --package email-trt --package whatsapp-trt --package labelize-ticket-trt --package alerting-dlq --package ticket-storage
 
 FROM debian:bookworm-slim
 
@@ -37,5 +38,6 @@ COPY --from=builder /app/target/release/email-trt /app/email-trt
 COPY --from=builder /app/target/release/whatsapp-trt /app/whatsapp-trt
 COPY --from=builder /app/target/release/labelize-ticket-trt /app/labelize-ticket-trt
 COPY --from=builder /app/target/release/alerting-dlq /app/alerting-dlq
+COPY --from=builder /app/target/release/ticket-storage /app/ticket-storage
 
 ENV RUST_LOG=info
