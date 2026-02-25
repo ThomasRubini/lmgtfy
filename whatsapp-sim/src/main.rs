@@ -12,6 +12,10 @@ struct Args {
     /// Number of messages to send
     #[arg(long)]
     count: u32,
+
+    /// Run in loop, sending one message every second
+    #[arg(long)]
+    loop_send: bool,
 }
 
 #[tokio::main]
@@ -30,25 +34,50 @@ async fn main() -> anyhow::Result<()> {
         .expect(&format!("Failed to create topic '{}'", WHATSAPP_MSG_QUEUE));
     println!("Topic '{}' ready", WHATSAPP_MSG_QUEUE);
 
-    for i in 1..=args.count {
-        let msg = WhatsAppMessage {
-            sender: format!("+336{:02}123456", i),
-            content: format!("Hello, this is WhatsApp message #{} - I need help!", i),
-            timestamp: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("Failed to get current timestamp")
-                .as_secs(),
-        };
+    if args.loop_send {
+        let mut i: u32 = 1;
+        loop {
+            let msg = WhatsAppMessage {
+                sender: format!("+336{:02}123456", i),
+                content: format!("Hello, this is WhatsApp message #{} - I need help!", i),
+                timestamp: SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .expect("Failed to get current timestamp")
+                    .as_secs(),
+            };
 
-        let msg_id = queue_mgr
-            .send(WHATSAPP_MSG_QUEUE, &msg)
-            .await
-            .expect(&format!("Failed to send WhatsApp message {} to Kafka", i));
-        
-        println!("Sent message {}/{} (id={}): from={}, content={}", 
-                 i, args.count, msg_id, msg.sender, msg.content);
+            let msg_id = queue_mgr
+                .send(WHATSAPP_MSG_QUEUE, &msg)
+                .await
+                .expect(&format!("Failed to send WhatsApp message {} to Kafka", i));
+            
+            println!("Sent message {} (id={}): from={}, content={}", 
+                     i, msg_id, msg.sender, msg.content);
+            
+            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+            i += 1;
+        }
+    } else {
+        for i in 1..=args.count {
+            let msg = WhatsAppMessage {
+                sender: format!("+336{:02}123456", i),
+                content: format!("Hello, this is WhatsApp message #{} - I need help!", i),
+                timestamp: SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .expect("Failed to get current timestamp")
+                    .as_secs(),
+            };
+
+            let msg_id = queue_mgr
+                .send(WHATSAPP_MSG_QUEUE, &msg)
+                .await
+                .expect(&format!("Failed to send WhatsApp message {} to Kafka", i));
+            
+            println!("Sent message {}/{} (id={}): from={}, content={}", 
+                     i, args.count, msg_id, msg.sender, msg.content);
+        }
+
+        println!("All {} WhatsApp messages sent successfully!", args.count);
     }
-
-    println!("All {} WhatsApp messages sent successfully!", args.count);
     Ok(())
 }

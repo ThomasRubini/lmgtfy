@@ -12,6 +12,10 @@ struct Args {
     /// Number of messages to send
     #[arg(long)]
     count: u32,
+
+    /// Run in loop, sending one message every second
+    #[arg(long)]
+    loop_send: bool,
 }
 
 #[tokio::main]
@@ -30,26 +34,52 @@ async fn main() -> anyhow::Result<()> {
         .expect(&format!("Failed to create topic '{}'", EMAIL_MSG_QUEUE));
     println!("Topic '{}' ready", EMAIL_MSG_QUEUE);
 
-    for i in 1..=args.count {
-        let msg = EmailMessage {
-            from: format!("user{}@example.com", i),
-            to: "support@company.com".to_string(),
-            content: format!("Hello, this is message #{} - I need help!", i),
-            timestamp: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("Failed to get current timestamp")
-                .as_secs(),
-        };
+    if args.loop_send {
+        let mut i: u32 = 1;
+        loop {
+            let msg = EmailMessage {
+                from: format!("user{}@example.com", i),
+                to: "support@company.com".to_string(),
+                content: format!("Hello, this is message #{} - I need help!", i),
+                timestamp: SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .expect("Failed to get current timestamp")
+                    .as_secs(),
+            };
 
-        let msg_id = queue_mgr
-            .send(EMAIL_MSG_QUEUE, &msg)
-            .await
-            .expect(&format!("Failed to send message {} to Kafka", i));
-        
-        println!("Sent message {}/{} (id={}): from={}, content={}", 
-                 i, args.count, msg_id, msg.from, msg.content);
+            let msg_id = queue_mgr
+                .send(EMAIL_MSG_QUEUE, &msg)
+                .await
+                .expect(&format!("Failed to send message {} to Kafka", i));
+            
+            println!("Sent message {} (id={}): from={}, content={}", 
+                     i, msg_id, msg.from, msg.content);
+            
+            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+            i += 1;
+        }
+    } else {
+        for i in 1..=args.count {
+            let msg = EmailMessage {
+                from: format!("user{}@example.com", i),
+                to: "support@company.com".to_string(),
+                content: format!("Hello, this is message #{} - I need help!", i),
+                timestamp: SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .expect("Failed to get current timestamp")
+                    .as_secs(),
+            };
+
+            let msg_id = queue_mgr
+                .send(EMAIL_MSG_QUEUE, &msg)
+                .await
+                .expect(&format!("Failed to send message {} to Kafka", i));
+            
+            println!("Sent message {}/{} (id={}): from={}, content={}", 
+                     i, args.count, msg_id, msg.from, msg.content);
+        }
+
+        println!("All {} messages sent successfully!", args.count);
     }
-
-    println!("All {} messages sent successfully!", args.count);
     Ok(())
 }
