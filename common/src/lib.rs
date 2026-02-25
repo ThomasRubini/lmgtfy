@@ -8,3 +8,4 @@ pub const KAFKA_BOOTSTRAP_SERVERS: &str = "localhost:9092";
 pub const WHATSAPP_MSG_QUEUE: &str = "whatsapp_messages";
 pub const EMAIL_MSG_QUEUE: &str = "email_messages";
 pub const COMMON_MSG_QUEUE: &str = "common_messages";
+pub const LABELED_TICKETS_QUEUE: &str = "labeled_tickets";

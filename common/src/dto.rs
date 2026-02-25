@@ -36,6 +36,16 @@ pub struct NewTicket {
     pub init_message: CommonMessage,
 }
 
+#[derive(Serialize, Debug, Deserialize)]
+pub struct LabeledTicket {
+    pub id: String,
+    pub original_message: CommonMessage,
+    pub title: String,
+    pub tags: Vec<String>,
+    pub description: String,
+    pub labeled_at: u64,
+}
+
 // FIXME: Move to a separate project
 
 impl From<WhatsAppMessage> for CommonMessage {

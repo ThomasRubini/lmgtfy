@@ -1,7 +1,5 @@
-use anyhow::Context;
-use common::COMMON_MSG_QUEUE;
-use common::dto::CommonMessage;
-use common::dto::NewTicket;
+use common::{COMMON_MSG_QUEUE, LABELED_TICKETS_QUEUE};
+use common::dto::{CommonMessage, NewTicket, LabeledTicket};
 use common::queue::QueueManager;
 use common::queue::kafka::KafkaQueueManager;
 use openrouter_rs::{
@@ -44,7 +42,7 @@ async fn main() -> Result<(), PgmqError> {
                 id: "99".to_string(),
                 init_message: msg.message,
             };
-            on_message(&client, new_ticket).await.context("Could not process message")
+            on_message(&client, new_ticket).await
         })
         .await
         .expect("Failed to register read handler");
@@ -70,8 +68,27 @@ struct LLMResponse {
 async fn on_message(client: &OpenRouterClient, msg: NewTicket) -> anyhow::Result<()> {
     println!("Received a message: {:?}", msg);
 
-    labelize_message(client, &msg).await.context("Could not labelize message")?;
-    // TODO post to postgres
+    let formatted_ticket = labelize_message(client, &msg).await?;
+    
+    // Create a complete labeled ticket
+    let labeled_ticket = LabeledTicket {
+        id: msg.id.clone(),
+        original_message: msg.init_message,
+        title: formatted_ticket.title,
+        tags: formatted_ticket.tags,
+        description: formatted_ticket.description,
+        labeled_at: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs(),
+    };
+
+    // Send to labeled tickets queue for storage
+    let queue_mgr = KafkaQueueManager::new().await?;
+    queue_mgr.create(LABELED_TICKETS_QUEUE).await?;
+    
+    let stored_id = queue_mgr.send(LABELED_TICKETS_QUEUE, &labeled_ticket).await?;
+    println!("Labeled ticket sent to storage queue (id={})", stored_id);
 
     Ok(())
 }
@@ -127,7 +144,7 @@ async fn labelize_message(
     println!("Sending request to LLM...");
 
     // Extract raw text
-    let response = client.send_chat_completion(&request).await.context("Could not complete text")?;
+    let response = client.send_chat_completion(&request).await?;
     let content = response.choices[0]
         .content()
         .expect("LLM Content should be present")
