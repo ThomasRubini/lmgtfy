@@ -1,3 +1,4 @@
+use anyhow::Context;
 use common::COMMON_MSG_QUEUE;
 use common::dto::CommonMessage;
 use common::dto::NewTicket;
@@ -43,7 +44,7 @@ async fn main() -> Result<(), PgmqError> {
                 id: "99".to_string(),
                 init_message: msg.message,
             };
-            on_message(&client, new_ticket).await
+            on_message(&client, new_ticket).await.context("Could not process message")
         })
         .await
         .expect("Failed to register read handler");
@@ -69,7 +70,7 @@ struct LLMResponse {
 async fn on_message(client: &OpenRouterClient, msg: NewTicket) -> anyhow::Result<()> {
     println!("Received a message: {:?}", msg);
 
-    labelize_message(client, &msg).await?;
+    labelize_message(client, &msg).await.context("Could not labelize message")?;
     // TODO post to postgres
 
     Ok(())
@@ -126,7 +127,7 @@ async fn labelize_message(
     println!("Sending request to LLM...");
 
     // Extract raw text
-    let response = client.send_chat_completion(&request).await?;
+    let response = client.send_chat_completion(&request).await.context("Could not complete text")?;
     let content = response.choices[0]
         .content()
         .expect("LLM Content should be present")
