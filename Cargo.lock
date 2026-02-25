@@ -4005,6 +4005,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "whatsapp-trt"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "common",
+ "serde",
+ "tokio",
+]
+
+[[package]]
 name = "whoami"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
