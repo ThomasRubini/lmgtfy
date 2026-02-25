@@ -56,6 +56,60 @@ services:
       KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL: 'PLAINTEXT'
     restart: unless-stopped
 
+  email-sim:
+    build: .
+    command: ["/app/email-sim", "--loop-send"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    env_file:
+      - .env
+
+  whatsapp-sim:
+    build: .
+    command: ["/app/whatsapp-sim", "--loop-send"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    env_file:
+      - .env
+
+  email-trt:
+    build: .
+    command: ["/app/email-trt"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    env_file:
+      - .env
+
+  whatsapp-trt:
+    build: .
+    command: ["/app/whatsapp-trt"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    env_file:
+      - .env
+
+  labelize-ticket-trt:
+    build: .
+    command: ["/app/labelize-ticket-trt"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    env_file:
+      - .env
+
+  alerting-dlq:
+    build: .
+    command: ["/app/alerting-dlq"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    env_file:
+      - .env
+
 volumes:
   postgres_data:
   kafka_data:
