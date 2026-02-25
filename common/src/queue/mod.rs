@@ -1,9 +1,7 @@
 use std::future::Future;
-use std::time::Duration;
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use tokio::time::sleep;
 
 pub mod kafka;
 pub mod pgmq;
