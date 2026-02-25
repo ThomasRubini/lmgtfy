@@ -1,9 +1,12 @@
+use std::{future::Future, time::Duration};
+
 use pgmq::PGMQueueExt;
 use serde::{Deserialize, Serialize};
+use tokio::time::sleep;
 
 use crate::{
+    queue::{get_dlq_name, Message, QueueManager},
     MAX_RETRIES, PG_URL, VISIBILITY_TIMEOUT_SECONDS,
-    queue::{Message, QueueManager, get_dlq_name},
 };
 
 pub struct PgMqQueueManager {
@@ -29,6 +32,48 @@ impl QueueManager for PgMqQueueManager {
         Ok(self.inner.send(queue_name, message).await?)
     }
 
+    async fn register_read<T: for<'de> Deserialize<'de> + Serialize, R>(
+        &mut self,
+        queue_name: &str,
+        process: &dyn Fn(Message<T>) -> R,
+    ) -> anyhow::Result<()>
+    where
+        R: Future<Output = anyhow::Result<()>>,
+    {
+        // Infinite loop for reading messages
+        loop {
+            // Read a message
+            let received_msg: Message<T> = match self.read(queue_name).await.unwrap() {
+                Some(msg) => msg,
+                None => {
+                    sleep(Duration::from_secs(1)).await;
+                    continue;
+                }
+            };
+            println!("Received a message (id={})", received_msg.msg_id);
+
+            // Process the message
+            let msg_id = received_msg.msg_id;
+            match process(received_msg).await {
+                Ok(()) => {
+                    // If processing is successful, delete the message from the queue
+                    self.delete(queue_name, msg_id).await?;
+                }
+                Err(err) => {
+                    println!("Error processing message {}: {}", msg_id, err);
+                    // If processing fails, do nothing, the message will be retired again
+                }
+            }
+        }
+    }
+
+    async fn delete(&self, queue_name: &str, message_id: i64) -> anyhow::Result<()> {
+        self.inner.delete(queue_name, message_id).await?;
+        Ok(())
+    }
+}
+
+impl PgMqQueueManager {
     async fn read<T: for<'de> Deserialize<'de> + Serialize>(
         &mut self,
         queue_name: &str,
@@ -56,10 +101,5 @@ impl QueueManager for PgMqQueueManager {
             }
             None => Ok(None),
         }
-    }
-
-    async fn delete(&self, queue_name: &str, message_id: i64) -> anyhow::Result<()> {
-        self.inner.delete(queue_name, message_id).await?;
-        Ok(())
     }
 }

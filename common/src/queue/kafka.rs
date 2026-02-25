@@ -103,61 +103,73 @@ impl QueueManager for KafkaQueueManager {
         Ok(offset)
     }
 
-    async fn read<T: for<'de> Deserialize<'de> + Serialize>(
+    async fn register_read<T: for<'de> Deserialize<'de> + Serialize, R>(
         &mut self,
         queue_name: &str,
-    ) -> Result<Option<Message<T>>> {
-        // Subscribe to the topic if not already subscribed
+        process: &dyn Fn(Message<T>) -> R,
+    ) -> Result<()>
+    where
+        R: std::prelude::rust_2024::Future<Output = anyhow::Result<()>>,
+    {
         self.consumer.subscribe(&[queue_name])?;
 
         // Try to get a message with a short timeout
         let message_stream = self.consumer.stream();
         let mut stream = Box::pin(message_stream);
 
-        // Use a timeout to avoid blocking indefinitely
-        match tokio::time::timeout(Duration::from_millis(100), stream.next()).await {
-            Ok(Some(Ok(kafka_msg))) => {
-                let payload = match kafka_msg.payload() {
-                    Some(payload) => payload,
-                    None => return Ok(None),
-                };
+        while let Some(message_result) = stream.next().await {
+            match message_result {
+                Ok(kafka_msg) => {
+                    let payload = match kafka_msg.payload() {
+                        Some(payload) => payload,
+                        None => continue,
+                    };
+                    println!("Received a message (id={})", kafka_msg.offset());
 
-                let message_str = std::str::from_utf8(payload)?;
-                let message: T = serde_json::from_str(message_str)?;
+                    let message_str = std::str::from_utf8(payload)?;
+                    let message: T = serde_json::from_str(message_str)?;
 
-                // Use offset as message ID for Kafka
-                let msg_id = kafka_msg.offset();
+                    // Use offset as message ID for Kafka
+                    let msg_id = kafka_msg.offset();
 
-                let seen = self
-                    .seen_messages
-                    .entry(msg_id.to_string())
-                    .and_modify(|count| *count += 1)
-                    .or_insert(1);
-                if *seen > MAX_RETRIES as usize {
-                    // Move message to DLQ
-                    println!(
-                        "Message with ID {} has been seen {} times, moving to DLQ",
-                        msg_id, seen
-                    );
-                    let dlq_name = get_dlq_name(queue_name);
+                    let seen = self
+                        .seen_messages
+                        .entry(msg_id.to_string())
+                        .and_modify(|count| *count += 1)
+                        .or_insert(1);
 
-                    self.send(&dlq_name, &message).await?;
+                    if *seen > MAX_RETRIES as usize {
+                        // Move message to DLQ
+                        println!(
+                            "Message with ID {} has been seen {} times, moving to DLQ",
+                            msg_id, seen
+                        );
+                        let dlq_name = get_dlq_name(queue_name);
+                        self.send(&dlq_name, &message).await?;
 
-                    // Commit the offset to skip the message
-                    self.consumer
-                        .commit_message(&kafka_msg, rdkafka::consumer::CommitMode::Async)?;
+                        // Commit the offset to skip the message
+                        self.consumer
+                            .commit_message(&kafka_msg, rdkafka::consumer::CommitMode::Async)?;
 
-                    // Reset seen count for this queue
-                    self.seen_messages.remove(queue_name);
+                        // Reset seen count for this queue
+                        self.seen_messages.remove(queue_name);
 
-                    return Ok(None); // Message moved to DLQ, treat as deleted
+                        continue;
+                    }
+
+                    let msg = Message { msg_id, message };
+                    if let Err(e) = process(msg).await {
+                        eprintln!("Error processing message: {}", e);
+                    } else {
+                        // If processed successfully, commit the offset to delete the message
+                        self.consumer
+                            .commit_message(&kafka_msg, rdkafka::consumer::CommitMode::Async)?;
+                    }
                 }
-
-                Ok(Some(Message { msg_id, message }))
+                Err(e) => eprintln!("Kafka error: {}", e),
             }
-            Ok(Some(Err(e))) => Err(anyhow::anyhow!("Kafka error: {}", e)),
-            Ok(None) | Err(_) => Ok(None), // Timeout or no message
         }
+        Err(anyhow::anyhow!("Message stream ended unexpectedly"))
     }
 
     async fn delete(&self, _queue_name: &str, _message_id: i64) -> Result<()> {
