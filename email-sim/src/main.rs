@@ -11,7 +11,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 struct Args {
     /// Number of messages to send
     #[arg(long)]
-    count: u32,
+    count: Option<u32>,
 
     /// Run in loop, sending one message every second
     #[arg(long)]
@@ -58,8 +58,8 @@ async fn main() -> anyhow::Result<()> {
             tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
             i += 1;
         }
-    } else {
-        for i in 1..=args.count {
+    } else if let Some(count) = args.count {
+        for i in 1..=count {
             let msg = EmailMessage {
                 from: format!("user{}@example.com", i),
                 to: "support@company.com".to_string(),
@@ -76,10 +76,12 @@ async fn main() -> anyhow::Result<()> {
                 .expect(&format!("Failed to send message {} to Kafka", i));
             
             println!("Sent message {}/{} (id={}): from={}, content={}", 
-                     i, args.count, msg_id, msg.from, msg.content);
+                     i, count, msg_id, msg.from, msg.content);
         }
 
-        println!("All {} messages sent successfully!", args.count);
+        println!("All {} messages sent successfully!", count);
+    } else {
+        println!("Error: Please specify --count or --loop-send");
     }
     Ok(())
 }

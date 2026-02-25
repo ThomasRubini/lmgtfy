@@ -11,7 +11,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 struct Args {
     /// Number of messages to send
     #[arg(long)]
-    count: u32,
+    count: Option<u32>,
 
     /// Run in loop, sending one message every second
     #[arg(long)]
@@ -57,8 +57,8 @@ async fn main() -> anyhow::Result<()> {
             tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
             i += 1;
         }
-    } else {
-        for i in 1..=args.count {
+    } else if let Some(count) = args.count {
+        for i in 1..=count {
             let msg = WhatsAppMessage {
                 sender: format!("+336{:02}123456", i),
                 content: format!("Hello, this is WhatsApp message #{} - I need help!", i),
@@ -74,10 +74,12 @@ async fn main() -> anyhow::Result<()> {
                 .expect(&format!("Failed to send WhatsApp message {} to Kafka", i));
             
             println!("Sent message {}/{} (id={}): from={}, content={}", 
-                     i, args.count, msg_id, msg.sender, msg.content);
+                     i, count, msg_id, msg.sender, msg.content);
         }
 
-        println!("All {} WhatsApp messages sent successfully!", args.count);
+        println!("All {} WhatsApp messages sent successfully!", count);
+    } else {
+        println!("Error: Please specify --count or --loop-send");
     }
     Ok(())
 }
