@@ -10,6 +10,7 @@ use rdkafka::{
 };
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, time::Duration};
+use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use crate::{
@@ -21,7 +22,7 @@ pub struct KafkaQueueManager {
     producer: FutureProducer,
     consumer: StreamConsumer,
     admin_client: AdminClient<rdkafka::client::DefaultClientContext>,
-    seen_messages: HashMap<String, usize>,
+    seen_messages: Mutex<HashMap<String, usize>>,
 }
 
 impl KafkaQueueManager {
@@ -48,7 +49,7 @@ impl KafkaQueueManager {
             producer,
             consumer,
             admin_client,
-            seen_messages: HashMap::new(),
+            seen_messages: Mutex::new(HashMap::new()),
         })
     }
 }
@@ -104,7 +105,7 @@ impl QueueManager for KafkaQueueManager {
     }
 
     async fn register_read<T: for<'de> Deserialize<'de> + Serialize, R>(
-        &mut self,
+        &self,
         queue_name: &str,
         process: &dyn Fn(Message<T>) -> R,
     ) -> Result<()>
@@ -132,8 +133,8 @@ impl QueueManager for KafkaQueueManager {
                     // Use offset as message ID for Kafka
                     let msg_id = kafka_msg.offset();
 
-                    let seen = self
-                        .seen_messages
+                    let mut seen_messages = self.seen_messages.lock().await;
+                    let seen = seen_messages
                         .entry(msg_id.to_string())
                         .and_modify(|count| *count += 1)
                         .or_insert(1);
@@ -152,7 +153,7 @@ impl QueueManager for KafkaQueueManager {
                             .commit_message(&kafka_msg, rdkafka::consumer::CommitMode::Async)?;
 
                         // Reset seen count for this queue
-                        self.seen_messages.remove(queue_name);
+                        seen_messages.remove(queue_name);
 
                         continue;
                     }

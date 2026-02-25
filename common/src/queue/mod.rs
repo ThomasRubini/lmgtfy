@@ -27,7 +27,7 @@ pub trait QueueManager: Send + Sync {
     async fn delete(&self, queue_name: &str, message_id: i64) -> Result<()>;
 
     async fn register_read<T: for<'de> Deserialize<'de> + Serialize, R>(
-        &mut self,
+        &self,
         queue_name: &str,
         process: &dyn Fn(Message<T>) -> R,
     ) -> Result<()>

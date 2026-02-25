@@ -33,7 +33,7 @@ impl QueueManager for PgMqQueueManager {
     }
 
     async fn register_read<T: for<'de> Deserialize<'de> + Serialize, R>(
-        &mut self,
+        &self,
         queue_name: &str,
         process: &dyn Fn(Message<T>) -> R,
     ) -> anyhow::Result<()>
@@ -75,7 +75,7 @@ impl QueueManager for PgMqQueueManager {
 
 impl PgMqQueueManager {
     async fn read<T: for<'de> Deserialize<'de> + Serialize>(
-        &mut self,
+        &self,
         queue_name: &str,
     ) -> anyhow::Result<Option<Message<T>>> {
         let msg: Option<pgmq::Message<T>> = self

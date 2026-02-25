@@ -19,7 +19,7 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let mut queue_mgr = KafkaQueueManager::new().await.unwrap();
+    let queue_mgr = KafkaQueueManager::new().await.unwrap();
 
     // Create queues
     queue_mgr.create(EMAIL_MSG_QUEUE).await.expect(&format!(
@@ -36,7 +36,6 @@ async fn main() -> anyhow::Result<()> {
         EMAIL_MSG_QUEUE
     );
 
-    let queue_mgr_2 = KafkaQueueManager::new().await.unwrap();
     queue_mgr
         .register_read(EMAIL_MSG_QUEUE, &async |msg: Message<EmailMessage>| {
             // Transform to common message
@@ -44,7 +43,7 @@ async fn main() -> anyhow::Result<()> {
             println!("Transformed to: {:?}", common_msg);
 
             // Send to common queue
-            let forwarded_id = queue_mgr_2
+            let forwarded_id = queue_mgr
                 .send(COMMON_MSG_QUEUE, &common_msg)
                 .await
                 .expect(&format!(

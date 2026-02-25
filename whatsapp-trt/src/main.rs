@@ -8,7 +8,7 @@ use common::{
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     println!("Starting WhatsApp processor with Kafka...");
-    let mut queue_mgr = KafkaQueueManager::new()
+    let queue_mgr = KafkaQueueManager::new()
         .await
         .expect("Failed to connect to Kafka - ensure Kafka is running on localhost:9092");
 
@@ -27,9 +27,6 @@ async fn main() -> anyhow::Result<()> {
         WHATSAPP_MSG_QUEUE
     );
 
-    let queue_mgr2 = KafkaQueueManager::new()
-        .await
-        .expect("Failed to connect to Kafka - ensure Kafka is running on localhost:9092");
     queue_mgr
         .register_read(WHATSAPP_MSG_QUEUE, &async |wrapper: Message<
             WhatsAppMessage,
@@ -39,7 +36,7 @@ async fn main() -> anyhow::Result<()> {
             println!("Transformed to: {:?}", common_msg);
 
             // Send to common queue
-            let forwarded_id = queue_mgr2
+            let forwarded_id = queue_mgr
                 .send(COMMON_MSG_QUEUE, &common_msg)
                 .await
                 .context("Failed to forward message to common queue")?;
