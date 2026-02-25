@@ -9,7 +9,7 @@ use rdkafka::{
     ClientConfig,
 };
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, time::Duration};
+use std::{collections::HashMap, future::Future, time::Duration};
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
@@ -110,7 +110,7 @@ impl QueueManager for KafkaQueueManager {
         process: &dyn Fn(Message<T>) -> R,
     ) -> Result<()>
     where
-        R: std::prelude::rust_2024::Future<Output = anyhow::Result<()>>,
+        R: Future<Output = anyhow::Result<()>>,
     {
         self.consumer.subscribe(&[queue_name])?;
 
